@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Concilium - AI Workflow Assistant</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <div class="header-content">
+            <div class="logo">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                    <circle cx="16" cy="16" r="14" stroke="url(#gradient1)" stroke-width="2" />
+                    <path d="M12 16L15 19L20 13" stroke="url(#gradient1)" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    <defs>
+                        <linearGradient id="gradient1" x1="0" y1="0" x2="32" y2="32">
+                            <stop offset="0%" stop-color="#667eea" />
+                            <stop offset="100%" stop-color="#764ba2" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <span>Concilium</span>
+            </div>
+            <div class="header-actions">
+                <button class="btn-icon" id="settingsBtn" title="Settings">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path
+                            d="M10 12.5C11.3807 12.5 12.5 11.3807 12.5 10C12.5 8.61929 11.3807 7.5 10 7.5C8.61929 7.5 7.5 8.61929 7.5 10C7.5 11.3807 8.61929 12.5 10 12.5Z"
+                            stroke="currentColor" stroke-width="1.5" />
+                        <path
+                            d="M16.5 10C16.5 10.5 16.4 11 16.2 11.4L18 12.7L16.5 15.3L14.4 14.5C13.8 15 13.1 15.3 12.3 15.5L12 17.5H9L8.7 15.5C7.9 15.3 7.2 15 6.6 14.5L4.5 15.3L3 12.7L4.8 11.4C4.6 11 4.5 10.5 4.5 10C4.5 9.5 4.6 9 4.8 8.6L3 7.3L4.5 4.7L6.6 5.5C7.2 5 7.9 4.7 8.7 4.5L9 2.5H12L12.3 4.5C13.1 4.7 13.8 5 14.4 5.5L16.5 4.7L18 7.3L16.2 8.6C16.4 9 16.5 9.5 16.5 10Z"
+                            stroke="currentColor" stroke-width="1.5" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="app-main">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-view="process">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M10 3L3 7L10 11L17 7L10 3Z" stroke="currentColor" stroke-width="1.5"
+                            stroke-linejoin="round" />
+                        <path d="M3 13L10 17L17 13" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+                        <path d="M3 10L10 14L17 10" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+                    </svg>
+                    <span>Process Files</span>
+                </button>
+                <button class="nav-item" data-view="history">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path
+                            d="M10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18Z"
+                            stroke="currentColor" stroke-width="1.5" />
+                        <path d="M10 6V10L13 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                    </svg>
+                    <span>History</span>
+                </button>
+                <button class="nav-item" data-view="settings">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path
+                            d="M10 12.5C11.3807 12.5 12.5 11.3807 12.5 10C12.5 8.61929 11.3807 7.5 10 7.5C8.61929 7.5 7.5 8.61929 7.5 10C7.5 11.3807 8.61929 12.5 10 12.5Z"
+                            stroke="currentColor" stroke-width="1.5" />
+                    </svg>
+                    <span>Settings</span>
+                </button>
+            </nav>
+        </aside>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Process View -->
+            <div class="view active" id="processView">
+                <div class="view-header">
+                    <h1>Process Files</h1>
+                    <p>Upload audio, documents, and templates to generate workflows and completed documents</p>
+                </div>
+
+                <!-- Upload Section -->
+                <div class="upload-section">
+                    <div class="upload-card">
+                        <div class="upload-icon">
+                            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                                <circle cx="24" cy="24" r="20" stroke="url(#gradient2)" stroke-width="2" />
+                                <path d="M24 16V32M16 24H32" stroke="url(#gradient2)" stroke-width="2"
+                                    stroke-linecap="round" />
+                            </svg>
+                        </div>
+                        <h3>Audio Files</h3>
+                        <p>Upload meeting recordings or audio files</p>
+                        <button class="btn-upload" id="uploadAudioBtn">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M10 14V6M10 6L7 9M10 6L13 9" stroke="currentColor" stroke-width="1.5"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M3 14V16C3 17.1046 3.89543 18 5 18H15C16.1046 18 17 17.1046 17 16V14"
+                                    stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                            </svg>
+                            Select Audio
+                        </button>
+                        <div class="file-list" id="audioFileList"></div>
+                    </div>
+
+                    <div class="upload-card">
+                        <div class="upload-icon">
+                            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                                <rect x="10" y="10" width="28" height="28" rx="2" stroke="url(#gradient3)"
+                                    stroke-width="2" />
+                                <path d="M16 20H32M16 24H28M16 28H32" stroke="url(#gradient3)" stroke-width="2"
+                                    stroke-linecap="round" />
+                            </svg>
+                        </div>
+                        <h3>Documents</h3>
+                        <p>Upload PDF, DOCX, or text documents</p>
+                        <button class="btn-upload" id="uploadDocumentBtn">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M10 14V6M10 6L7 9M10 6L13 9" stroke="currentColor" stroke-width="1.5"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M3 14V16C3 17.1046 3.89543 18 5 18H15C16.1046 18 17 17.1046 17 16V14"
+                                    stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                            </svg>
+                            Select Document
+                        </button>
+                        <div class="file-list" id="documentFileList"></div>
+                    </div>
+
+                    <div class="upload-card">
+                        <div class="upload-icon">
+                            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                                <path d="M14 14H34V34H14V14Z" stroke="url(#gradient4)" stroke-width="2" />
+                                <path d="M18 18H30M18 24H26M18 30H30" stroke="url(#gradient4)" stroke-width="2"
+                                    stroke-linecap="round" />
+                            </svg>
+                        </div>
+                        <h3>Templates</h3>
+                        <p>Upload document templates to fill</p>
+                        <button class="btn-upload" id="uploadTemplateBtn">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M10 14V6M10 6L7 9M10 6L13 9" stroke="currentColor" stroke-width="1.5"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M3 14V16C3 17.1046 3.89543 18 5 18H15C16.1046 18 17 17.1046 17 16V14"
+                                    stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                            </svg>
+                            Select Template
+                        </button>
+                        <div class="file-list" id="templateFileList"></div>
+                    </div>
+                </div>
+
+                <!-- Processing Options -->
+                <div class="processing-options">
+                    <h2>Processing Options</h2>
+                    <div class="options-grid">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="generateWorkflowCheck" checked>
+                            <span>Generate Workflow Diagrams</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="completeTemplatesCheck" checked>
+                            <span>Complete Templates</span>
+                        </label>
+                    </div>
+                    <div class="workflow-name-input">
+                        <label for="workflowName">Workflow Name (optional):</label>
+                        <input type="text" id="workflowName" placeholder="e.g., Meeting Workflow">
+                    </div>
+                </div>
+
+                <!-- Process Button -->
+                <div class="action-bar">
+                    <button class="btn-primary btn-large" id="processBtn" disabled>
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M6 10L9 13L14 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                        Start Processing
+                    </button>
+                </div>
+
+                <!-- Progress Section -->
+                <div class="progress-section" id="progressSection" style="display: none;">
+                    <h2>Processing...</h2>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <p class="progress-text" id="progressText">Initializing...</p>
+                </div>
+
+                <!-- Results Section -->
+                <div class="results-section" id="resultsSection" style="display: none;">
+                    <h2>Results</h2>
+                    <div class="results-grid" id="resultsGrid"></div>
+                </div>
+            </div>
+
+            <!-- History View -->
+            <div class="view" id="historyView">
+                <div class="view-header">
+                    <h1>Processing History</h1>
+                    <p>View your previous processing jobs</p>
+                </div>
+                <div class="history-list" id="historyList">
+                    <p class="empty-state">No processing history yet</p>
+                </div>
+            </div>
+
+            <!-- Settings View -->
+            <div class="view" id="settingsView">
+                <div class="view-header">
+                    <h1>Settings</h1>
+                    <p>Configure your Concilium application</p>
+                </div>
+                <div class="settings-content">
+                    <div class="setting-group">
+                        <h3>API Configuration</h3>
+                        <label for="apiUrl">API Server URL:</label>
+                        <input type="text" id="apiUrl" placeholder="http://localhost:8000"
+                            value="http://localhost:8000">
+                        <button class="btn-secondary" id="testConnectionBtn">Test Connection</button>
+                        <p class="connection-status" id="connectionStatus"></p>
+                    </div>
+                    <div class="setting-group">
+                        <h3>About</h3>
+                        <p>Concilium AI Workflow Assistant</p>
+                        <p>Version: <span id="appVersion">1.0.0</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- SVG Gradients -->
+    <svg style="display: none;">
+        <defs>
+            <linearGradient id="gradient2" x1="0" y1="0" x2="48" y2="48">
+                <stop offset="0%" stop-color="#667eea" />
+                <stop offset="100%" stop-color="#764ba2" />
+            </linearGradient>
+            <linearGradient id="gradient3" x1="0" y1="0" x2="48" y2="48">
+                <stop offset="0%" stop-color="#f093fb" />
+                <stop offset="100%" stop-color="#f5576c" />
+            </linearGradient>
+            <linearGradient id="gradient4" x1="0" y1="0" x2="48" y2="48">
+                <stop offset="0%" stop-color="#4facfe" />
+                <stop offset="100%" stop-color="#00f2fe" />
+            </linearGradient>
+        </defs>
+    </svg>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
