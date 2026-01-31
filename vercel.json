@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd frontend/landing && echo 'Static site ready'",
+  "buildCommand": "echo 'Static site ready'",
   "installCommand": "echo 'No dependencies to install'",
   "framework": null
 }
