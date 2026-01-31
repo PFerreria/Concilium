@@ -1,5 +1,6 @@
 {
   "buildCommand": "echo 'Static site ready'",
+  "outputDirectory": ".",
   "installCommand": "echo 'No dependencies to install'",
   "framework": null
 }
