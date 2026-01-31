@@ -1,0 +1,59 @@
+# Web Framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# AI & ML - Open Source Models
+transformers>=4.36.0
+torch>=2.1.0
+accelerate>=0.25.0
+sentencepiece>=0.1.99
+protobuf>=4.25.0
+
+# Llama Model Support
+llama-cpp-python>=0.2.0
+bitsandbytes>=0.41.0
+
+# Audio Processing - Whisper Local
+openai-whisper>=20231117
+pydub>=0.25.1
+ffmpeg-python>=0.2.0
+
+# Document Processing
+PyPDF2>=3.0.0
+python-docx>=1.1.0
+openpyxl>=3.1.2
+pdfplumber>=0.10.3
+
+# Workflow Generation
+lxml>=5.1.0
+graphviz>=0.20.1
+diagrams>=0.23.4
+
+# Template Processing
+jinja2>=3.1.2
+
+# Database
+sqlalchemy>=2.0.23
+alembic>=1.13.0
+aiosqlite>=0.19.0
+
+# Background Tasks
+celery>=5.3.4
+redis>=5.0.1
+
+# Utilities
+python-dotenv>=1.0.0
+python-magic>=0.4.27
+aiofiles>=23.2.1
+
+# API Documentation
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+
+# Testing
+pytest>=7.4.3
+pytest-asyncio>=0.21.1
+httpx>=0.25.2
