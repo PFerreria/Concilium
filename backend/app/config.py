@@ -9,7 +9,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        case_sensitive=False
+        case_sensitive=False,
+        extra="ignore"
     )
     
     # Application
@@ -40,6 +41,7 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 2048
     llm_temperature: float = 0.7
     llm_device: str = "cuda"  # cuda, cpu, mps
+    hf_token: Optional[str] = None
     
     # Whisper Configuration
     whisper_model_size: str = "base"  # tiny, base, small, medium, large

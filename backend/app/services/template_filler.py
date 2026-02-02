@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import logging
 from datetime import datetime
 import uuid
@@ -88,6 +88,8 @@ class TemplateFiller:
         
         # Replace placeholders in tables
         for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
                     for paragraph in cell.paragraphs:
                         self._replace_placeholders_in_text(paragraph, data)
         

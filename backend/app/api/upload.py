@@ -31,6 +31,7 @@ def validate_audio_format(filename: str) -> bool:
 
 def validate_document_format(filename: str) -> bool:
     """Validate document file format"""
+    suffix = Path(filename).suffix.lower()
     return suffix in settings.allowed_document_formats
 
 
@@ -40,6 +41,11 @@ async def upload_audio(
     background_tasks: BackgroundTasks = None
 ):
     """
+    Upload audio file for transcription
+    
+    Supported formats: mp3, wav, m4a, ogg, flac
+    """
+    try:
         # Validate format
         if not validate_audio_format(file.filename):
             raise HTTPException(
@@ -88,6 +94,11 @@ async def upload_document(
     Supported formats: pdf, docx, txt, xlsx
     """
     try:
+        # Validate format
+        if not validate_document_format(file.filename):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported document format. Allowed: {settings.allowed_document_formats}"
             )
         
         # Generate unique file ID
@@ -138,6 +149,11 @@ async def upload_template(file: UploadFile = File(...)):
 
 @router.delete("/upload/{file_id}")
 async def delete_upload(file_id: str):
+    """Delete uploaded file"""
+    try:
+        # Search for file in upload directories
+        found = False
+        
         for directory in [settings.upload_dir, settings.template_dir]:
             for file_path in directory.glob(f"{file_id}.*"):
                 file_path.unlink()

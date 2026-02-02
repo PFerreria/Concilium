@@ -4,12 +4,25 @@ from fastapi.responses import FileResponse
 from datetime import datetime
 import logging
 from pathlib import Path
+import os
 
 from app.config import settings
 from app.models.schemas import HealthResponse
 from app.api import upload, processing
 from app.services.audio_processor import audio_processor
 from app.services.ai_analyzer import ai_analyzer
+
+# Ensure ffmpeg and graphviz are in PATH (Windows fix)
+extra_paths = [
+    r"C:\ffmpeg",
+    r"C:\Program Files\Graphviz\bin",
+    r"C:\Program Files (x86)\Graphviz\bin",
+]
+
+for path in extra_paths:
+    if os.path.exists(path) and path not in os.environ.get('PATH', ''):
+        os.environ['PATH'] = path + os.pathsep + os.environ.get('PATH', '')
+        print(f"Added to PATH: {path}")
 
 logging.basicConfig(
     level=settings.log_level,
@@ -39,6 +52,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(upload.router)
 app.include_router(processing.router)
 
 
@@ -136,5 +150,6 @@ if __name__ == "__main__":
         "app.main:app",
         host=settings.host,
         port=settings.port,
-        reload=settings.reload
+        reload=settings.reload,
+        reload_dirs=["app"]
     )

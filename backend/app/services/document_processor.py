@@ -63,6 +63,7 @@ class DocumentProcessor:
                 metadata['pages'] = len(pdf.pages)
                 
                 for page in pdf.pages:
+                    page_text = page.extract_text()
                     if page_text:
                         text_parts.append(page_text)
             
@@ -90,7 +91,11 @@ class DocumentProcessor:
             tables_text = []
             for table in doc.tables:
                 for row in table.rows:
-                    tables_text.append(row_text)
+                    row_parts = []
+                    for cell in row.cells:
+                        row_parts.append(cell.text.strip())
+                    if row_parts:
+                        tables_text.append(' | '.join(row_parts))
             
             # Combine all text
             full_text = '\n\n'.join(paragraphs)

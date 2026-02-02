@@ -15,7 +15,12 @@ class AudioProcessor:
     
     def __init__(self):
         self.model = None
-        self.device = settings.whisper_device
+        # Check if CUDA is actually available
+        if settings.whisper_device == "cuda" and not torch.cuda.is_available():
+            logger.warning("CUDA requested for Whisper but not available. Falling back to CPU.")
+            self.device = "cpu"
+        else:
+            self.device = settings.whisper_device
         self._load_model()
     
     def _load_model(self):
@@ -37,6 +42,9 @@ class AudioProcessor:
         language: Optional[str] = None
     ) -> TranscriptionResult:
         """
+        Transcribe audio file using Whisper
+        """
+        try:
             logger.info(f"Transcribing audio file: {audio_path}")
             
             # Transcribe with Whisper
@@ -75,6 +83,7 @@ class AudioProcessor:
             )
             
             logger.info(f"Transcription completed: {len(segments)} segments, {duration:.2f}s")
+            logger.debug(f"Full transcription text: {full_text}")
             return transcription
             
         except Exception as e:

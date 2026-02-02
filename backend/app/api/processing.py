@@ -100,6 +100,9 @@ async def process_all(
     background_tasks: BackgroundTasks
 ):
     """
+    Start an end-to-end processing job
+    """
+    try:
         job_id = str(uuid.uuid4())
         
         logger.info(f"Starting processing job: {job_id}")
@@ -240,6 +243,7 @@ async def get_job_status(job_id: str):
     job_data = jobs[job_id]
     
     return ProcessResponse(
+        job_id=job_id,
         status=job_data["status"],
         message=job_data["message"],
         transcriptions=job_data.get("transcriptions"),

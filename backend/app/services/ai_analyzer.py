@@ -18,27 +18,42 @@ class AIAnalyzer:
         self.model = None
         self.tokenizer = None
         self.pipeline = None
-        self.device = settings.llm_device
-        self._load_model()
+        # Check if CUDA is actually available
+        if settings.llm_device == "cuda" and not torch.cuda.is_available():
+            logger.warning("CUDA requested for Llama but not available. Falling back to CPU.")
+            self.device = "cpu"
+        else:
+            self.device = settings.llm_device
+        # Don't load model on init to allow for authentication first
     
+    def initialize(self):
+        """Initialize models after authentication"""
+        if self.model is None:
+            self._load_model()
+            
     def _load_model(self):
         try:
             logger.info(f"Loading Llama model: {settings.llm_model_name}")
             
-            # Load tokenizer
+            # Load tokenizer with token
             self.tokenizer = AutoTokenizer.from_pretrained(
                 settings.llm_model_name,
+                token=settings.hf_token,
                 trust_remote_code=True
             )
             
-            # Load model with optimizations
+            # Load model with optimizations and token
             self.model = AutoModelForCausalLM.from_pretrained(
                 settings.llm_model_name,
-                torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
-                device_map="auto" if self.device == "cuda" else None,
+                token=settings.hf_token,
+                torch_dtype=torch.float16, # Use half-precision to save 50% RAM
+                device_map=None, # Disable auto mapping for CPU stability
                 trust_remote_code=True,
                 low_cpu_mem_usage=True
             )
+            
+            if self.device != "cpu":
+                self.model = self.model.to(self.device)
             
             # Create text generation pipeline
             self.pipeline = pipeline(
@@ -63,7 +78,12 @@ class AIAnalyzer:
         context: Optional[str] = None
     ) -> List[WorkflowStep]:
         """
+        Extract workflow steps from text using AI analysis
+        """
+        self.initialize()
+        try:
             logger.info("Extracting workflow from text")
+            logger.debug(f"Input text: {text[:500]}...") # Log start of input
             
             # Create prompt for workflow extraction
             prompt = self._create_workflow_extraction_prompt(text, context)
@@ -122,40 +142,62 @@ Return a JSON array of workflow steps with this structure:
   }}
 ]"""
         
-        # Format for Llama chat template
-        full_prompt = f"<s>[INST] <<SYS>>\n{system_prompt}\n<</SYS>>\n\n{user_prompt} [/INST]"
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
         
-        return full_prompt
+        return self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True
+        )
     
     def _parse_workflow_response(self, response: str) -> List[WorkflowStep]:
         """Parse workflow steps from AI response"""
         try:
+            logger.debug(f"Raw AI response: {response}")
+            
             # Extract JSON from response
             json_match = re.search(r'\[.*\]', response, re.DOTALL)
             if not json_match:
-                logger.warning("No JSON found in response, creating default workflow")
+                logger.warning("No JSON array found in response, creating default workflow")
                 return self._create_default_workflow()
             
             json_str = json_match.group(0)
-            steps_data = json.loads(json_str)
+            
+            # Robust JSON parsing (handles extra data after JSON)
+            try:
+                steps_data = json.loads(json_str)
+            except json.JSONDecodeError:
+                # Try to find the first valid JSON array
+                start_ptr = json_str.find('[')
+                if start_ptr != -1:
+                    try:
+                        decoder = json.JSONDecoder()
+                        steps_data, _ = decoder.raw_decode(json_str[start_ptr:])
+                    except Exception as e:
+                        logger.error(f"Failed to parse JSON using raw_decode: {e}")
+                        return self._create_default_workflow()
+                else:
+                    return self._create_default_workflow()
             
             # Convert to WorkflowStep objects
             workflow_steps = []
             for step_data in steps_data:
-                step = WorkflowStep(
+                workflow_steps.append(WorkflowStep(
                     step_id=step_data.get('step_id', f'step_{len(workflow_steps) + 1}'),
                     name=step_data.get('name', 'Unnamed Step'),
                     description=step_data.get('description', ''),
                     step_type=step_data.get('step_type', 'task'),
                     next_steps=step_data.get('next_steps', []),
                     metadata=step_data.get('metadata', {})
-                )
-                workflow_steps.append(step)
+                ))
             
             return workflow_steps
             
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON response: {e}")
+        except Exception as e:
+            logger.error(f"Failed to parse workflow response: {e}")
             return self._create_default_workflow()
     
     def _create_default_workflow(self) -> List[WorkflowStep]:
@@ -199,6 +241,7 @@ Return a JSON array of workflow steps with this structure:
         Returns:
             Dictionary mapping field names to extracted values
         """
+        self.initialize()
         try:
             logger.info(f"Extracting data for {len(template_fields)} template fields")
             
@@ -249,9 +292,16 @@ Return a JSON object with the extracted values:
   "field_name": "extracted value"
 }}"""
         
-        full_prompt = f"<s>[INST] <<SYS>>\n{system_prompt}\n<</SYS>>\n\n{user_prompt} [/INST]"
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
         
-        return full_prompt
+        return self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True
+        )
     
     def _parse_extraction_response(
         self,
@@ -260,14 +310,30 @@ Return a JSON object with the extracted values:
     ) -> Dict[str, Any]:
         """Parse extracted data from AI response"""
         try:
+            logger.debug(f"Raw AI extraction response: {response}")
+            
             # Extract JSON from response
             json_match = re.search(r'\{.*\}', response, re.DOTALL)
             if not json_match:
-                logger.warning("No JSON found in extraction response")
+                logger.warning("No JSON object found in extraction response")
                 return {field: "" for field in expected_fields}
             
             json_str = json_match.group(0)
-            extracted_data = json.loads(json_str)
+            
+            # Robust JSON parsing
+            try:
+                extracted_data = json.loads(json_str)
+            except json.JSONDecodeError:
+                start_ptr = json_str.find('{')
+                if start_ptr != -1:
+                    try:
+                        decoder = json.JSONDecoder()
+                        extracted_data, _ = decoder.raw_decode(json_str[start_ptr:])
+                    except Exception as e:
+                        logger.error(f"Failed to parse extraction JSON using raw_decode: {e}")
+                        return {field: "" for field in expected_fields}
+                else:
+                    return {field: "" for field in expected_fields}
             
             # Ensure all expected fields are present
             for field in expected_fields:
@@ -276,7 +342,7 @@ Return a JSON object with the extracted values:
             
             return extracted_data
             
-        except json.JSONDecodeError as e:
+        except Exception as e:
             logger.error(f"Failed to parse extraction response: {e}")
             return {field: "" for field in expected_fields}
     
