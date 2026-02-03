@@ -261,12 +261,12 @@ function displayResults(results) {
                 );
             }
 
-            // XML Card
+            // BPMN Card
             resultsGrid.innerHTML += createResultCard(
-                'BPMN XML Workflow',
+                'BPMN File',
                 `Generated from ${workflow.name}`,
                 workflow.workflow_id,
-                'xml'
+                'bpmn'
             );
 
             // Diagram Card (if available)
@@ -299,7 +299,7 @@ function createResultCard(title, description, id, type, content = null) {
         ? `downloadLocal('${id}', '${type}', \`${content.replace(/`/g, '\\`').replace(/'/g, "\\'")}\`)`
         : `downloadResult('${id}', '${type}')`;
 
-    const previewButton = type === 'diagram' 
+    const previewButton = type === 'diagram'
         ? `<button class="btn-secondary" onclick="previewDiagram('${id}')">
              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                  <path d="M1 8C1 8 3 3 8 3C13 3 15 8 15 8C15 8 13 13 8 13C3 13 1 8 1 8Z" stroke="currentColor" stroke-width="1.5"/>
@@ -334,10 +334,10 @@ async function previewDiagram(workflowId) {
         const url = `${state.apiUrl}/download/workflow/${workflowId}/diagram`;
         const response = await fetch(url);
         const blob = await response.blob();
-        
+
         // Create object URL for preview
         const objectUrl = URL.createObjectURL(blob);
-        
+
         // Open in new window
         const previewWindow = window.open('', '_blank', 'width=800,height=600');
         previewWindow.document.write(`
@@ -368,12 +368,12 @@ async function previewDiagram(workflowId) {
             </body>
             </html>
         `);
-        
+
         // Clean up object URL after window loads
         previewWindow.addEventListener('load', () => {
             setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
         });
-        
+
     } catch (error) {
         console.error('Preview error:', error);
         await window.electronAPI.showMessage({
@@ -408,6 +408,9 @@ async function downloadResult(id, type) {
         if (type === 'xml') {
             url = `${state.apiUrl}/download/workflow/${id}/xml`;
             filename = `workflow_${id}.xml`;
+        } else if (type === 'bpmn') {
+            url = `${state.apiUrl}/download/workflow/${id}/bpmn`;
+            filename = `workflow_${id}.bpmn`;
         } else if (type === 'diagram') {
             url = `${state.apiUrl}/download/workflow/${id}/diagram`;
             // Get file extension from settings or default to png
@@ -420,11 +423,11 @@ async function downloadResult(id, type) {
         }
 
         const response = await fetch(url);
-        
+
         if (!response.ok) {
             throw new Error(`Download failed: ${response.statusText}`);
         }
-        
+
         const blob = await response.blob();
         const arrayBuffer = await blob.arrayBuffer();
 

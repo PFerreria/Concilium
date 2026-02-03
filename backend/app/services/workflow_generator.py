@@ -30,15 +30,12 @@ class WorkflowGenerator:
             workflow_id = str(uuid.uuid4())
             logger.info(f"Generating workflow: {name} (ID: {workflow_id})")
             
-            # Generate BPMN XML
+            # Generate BPMN XML (now .bpmn)
             xml_path = await self.generate_bpmn_xml(
                 workflow_id, steps, name, description
             )
             
-            # Generate visual diagram
-            diagram_path = await self.generate_diagram(
-                workflow_id, steps, name
-            )
+            # Diagram generation REMOVED as requested.
             
             workflow = WorkflowDiagram(
                 workflow_id=workflow_id,
@@ -46,7 +43,7 @@ class WorkflowGenerator:
                 description=description,
                 steps=steps,
                 xml_path=str(xml_path),
-                diagram_path=str(diagram_path) if diagram_path else None,
+                diagram_path=None,
                 created_at=datetime.now()
             )
             
@@ -141,7 +138,7 @@ class WorkflowGenerator:
         self._add_visual_layout(plane, fixed_steps, BPMNDI_NS, DC_NS, DI_NS, flow_counter)
         
         # Write to file
-        xml_filename = f"workflow_{workflow_id}.xml"
+        xml_filename = f"workflow_{workflow_id}.bpmn"
         xml_path = self.output_dir / xml_filename
         
         tree = etree.ElementTree(definitions)
@@ -155,201 +152,7 @@ class WorkflowGenerator:
         logger.info(f"BPMN XML generated: {xml_path}")
         return xml_path
     
-    async def generate_diagram(
-        self,
-        workflow_id: str,
-        steps: List[WorkflowStep],
-        name: str
-    ) -> Optional[Path]:
-        """
-        Generate visual diagram from workflow steps
-        Supports multiple rendering methods
-        """
-        try:
-            # Try multiple rendering approaches
-            diagram_path = None
-            
-            # Method 1: Try using Graphviz (most reliable)
-            diagram_path = await self._generate_graphviz_diagram(workflow_id, steps, name)
-            
-            if diagram_path:
-                logger.info(f"Diagram generated: {diagram_path}")
-                return diagram_path
-            
-            # Method 2: Try using matplotlib (fallback)
-            diagram_path = await self._generate_matplotlib_diagram(workflow_id, steps, name)
-            
-            if diagram_path:
-                logger.info(f"Diagram generated with matplotlib: {diagram_path}")
-                return diagram_path
-            
-            logger.warning("No diagram rendering method succeeded")
-            return None
-            
-        except Exception as e:
-            logger.error(f"Diagram generation failed: {e}")
-            return None
-    
-    async def _generate_graphviz_diagram(
-        self,
-        workflow_id: str,
-        steps: List[WorkflowStep],
-        name: str
-    ) -> Optional[Path]:
-        """Generate diagram using Graphviz DOT format"""
-        try:
-            from graphviz import Digraph
-            
-            # Create directed graph
-            dot = Digraph(comment=name)
-            dot.attr(rankdir='LR')  # Left to right layout
-            dot.attr('node', shape='box', style='rounded,filled', fillcolor='lightblue')
-            
-            # Fix workflow structure
-            fixed_steps = self._fix_workflow_structure(steps)
-            
-            # Add nodes
-            for step in fixed_steps:
-                if step.step_type == 'event':
-                    if 'start' in step.name.lower():
-                        dot.node(step.step_id, step.name, shape='circle', fillcolor='lightgreen')
-                    elif 'end' in step.name.lower():
-                        dot.node(step.step_id, step.name, shape='doublecircle', fillcolor='lightcoral')
-                    else:
-                        dot.node(step.step_id, step.name, shape='circle', fillcolor='lightyellow')
-                elif step.step_type == 'gateway' or step.step_type == 'decision':
-                    dot.node(step.step_id, step.name, shape='diamond', fillcolor='lightyellow')
-                else:
-                    # Regular task
-                    label = f"{step.name}"
-                    if step.description and len(step.description) < 50:
-                        label += f"\n{step.description}"
-                    dot.node(step.step_id, label)
-            
-            # Add edges
-            for step in fixed_steps:
-                for next_step_id in step.next_steps:
-                    dot.edge(step.step_id, next_step_id)
-            
-            # Set output format
-            output_format = self.diagram_format
-            diagram_filename = f"workflow_{workflow_id}"
-            
-            # Render to file
-            output_path = self.output_dir / diagram_filename
-            dot.render(
-                filename=str(output_path),
-                format=output_format,
-                cleanup=True  # Remove .gv file after rendering
-            )
-            
-            final_path = self.output_dir / f"{diagram_filename}.{output_format}"
-            
-            if final_path.exists():
-                return final_path
-            
-            return None
-            
-        except ImportError:
-            logger.warning("Graphviz not available, trying alternative methods")
-            return None
-        except Exception as e:
-            logger.error(f"Graphviz diagram generation failed: {e}")
-            return None
-    
-    async def _generate_matplotlib_diagram(
-        self,
-        workflow_id: str,
-        steps: List[WorkflowStep],
-        name: str
-    ) -> Optional[Path]:
-        """Generate diagram using matplotlib and networkx"""
-        try:
-            import matplotlib
-            matplotlib.use('Agg')  # Non-interactive backend
-            import matplotlib.pyplot as plt
-            import networkx as nx
-            
-            # Fix workflow structure
-            fixed_steps = self._fix_workflow_structure(steps)
-            
-            # Create directed graph
-            G = nx.DiGraph()
-            
-            # Add nodes with labels
-            labels = {}
-            node_colors = []
-            node_shapes = []
-            
-            for step in fixed_steps:
-                G.add_node(step.step_id)
-                labels[step.step_id] = step.name
-                
-                # Color coding
-                if step.step_type == 'event':
-                    if 'start' in step.name.lower():
-                        node_colors.append('lightgreen')
-                    elif 'end' in step.name.lower():
-                        node_colors.append('lightcoral')
-                    else:
-                        node_colors.append('lightyellow')
-                elif step.step_type in ['gateway', 'decision']:
-                    node_colors.append('lightyellow')
-                else:
-                    node_colors.append('lightblue')
-            
-            # Add edges
-            for step in fixed_steps:
-                for next_step_id in step.next_steps:
-                    G.add_edge(step.step_id, next_step_id)
-            
-            # Create figure
-            plt.figure(figsize=(12, 8))
-            plt.title(name, fontsize=16, fontweight='bold')
-            
-            # Use hierarchical layout
-            try:
-                pos = nx.nx_agraph.graphviz_layout(G, prog='dot')
-            except:
-                # Fallback to spring layout
-                pos = nx.spring_layout(G, k=2, iterations=50)
-            
-            # Draw graph
-            nx.draw(
-                G, pos,
-                labels=labels,
-                node_color=node_colors,
-                node_size=3000,
-                font_size=10,
-                font_weight='bold',
-                arrows=True,
-                arrowsize=20,
-                arrowstyle='->',
-                edge_color='gray',
-                with_labels=True,
-                bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor='black')
-            )
-            
-            plt.tight_layout()
-            
-            # Save diagram
-            diagram_filename = f"workflow_{workflow_id}.{self.diagram_format}"
-            diagram_path = self.output_dir / diagram_filename
-            
-            plt.savefig(diagram_path, dpi=300, bbox_inches='tight')
-            plt.close()
-            
-            if diagram_path.exists():
-                return diagram_path
-            
-            return None
-            
-        except ImportError:
-            logger.warning("Matplotlib/NetworkX not available")
-            return None
-        except Exception as e:
-            logger.error(f"Matplotlib diagram generation failed: {e}")
-            return None
+    # Diagram generation methods removed
     
     def _fix_workflow_structure(self, steps: List[WorkflowStep]) -> List[WorkflowStep]:
         """

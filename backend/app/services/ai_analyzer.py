@@ -132,7 +132,7 @@ JSON Schema:
   "name": "string (Human readable name)",
   "description": "string (Brief description)",
   "step_type": "string (task, gateway, event)",
-  "next_steps": ["string (ID of the next step)"]
+  "next_steps": ["string (ID of the next step - DO NOT use objects here, just the ID string)"]
 }"""
         
         user_prompt = f"""TRANSCRIPT:
@@ -209,12 +209,23 @@ Analyze the transcript above and extract the workflow steps as a JSON array."""
                     logger.warning(f"Skipping string step data: {step_data}")
                     continue
                     
+                next_steps_raw = step_data.get('next_steps', [])
+                clean_next_steps = []
+                if isinstance(next_steps_raw, list):
+                    for ns in next_steps_raw:
+                        if isinstance(ns, dict):
+                            # ID extraction from dict if AI messed up
+                            if 'step_id' in ns:
+                                clean_next_steps.append(str(ns['step_id']))
+                        elif isinstance(ns, str):
+                            clean_next_steps.append(ns)
+                
                 workflow_steps.append(WorkflowStep(
                     step_id=step_data.get('step_id', f'step_{len(workflow_steps) + 1}'),
                     name=step_data.get('name', 'Unnamed Step'),
                     description=step_data.get('description', ''),
                     step_type=step_data.get('step_type', 'task'),
-                    next_steps=step_data.get('next_steps', []),
+                    next_steps=clean_next_steps,
                     metadata=step_data.get('metadata', {})
                 ))
             

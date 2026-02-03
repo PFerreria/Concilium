@@ -113,13 +113,19 @@ async def download_workflow(workflow_id: str, file_type: str):
         file_type: 'xml' or 'diagram'
     """
     if file_type == "xml":
+        # Legacy support or if requested as xml
         file_path = settings.workflow_output_dir / f"workflow_{workflow_id}.xml"
+        if not file_path.exists():
+             file_path = settings.workflow_output_dir / f"workflow_{workflow_id}.bpmn"
+        media_type = "application/xml"
+    elif file_type == "bpmn":
+        file_path = settings.workflow_output_dir / f"workflow_{workflow_id}.bpmn"
         media_type = "application/xml"
     elif file_type == "diagram":
         file_path = settings.workflow_output_dir / f"workflow_{workflow_id}.{settings.diagram_format}"
         media_type = f"image/{settings.diagram_format}"
     else:
-        return {"error": "Invalid file type. Use 'xml' or 'diagram'"}
+        return {"error": "Invalid file type. Use 'bpmn', 'xml' or 'diagram'"}
     
     if not file_path.exists():
         return {"error": "File not found"}
