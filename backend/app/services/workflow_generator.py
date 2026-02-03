@@ -332,10 +332,14 @@ class WorkflowGenerator:
             
             # Use hierarchical layout
             try:
-                pos = nx.nx_agraph.graphviz_layout(G, prog='dot')
+                # Try graphviz layout first if available
+                if nx.nx_agraph:
+                    pos = nx.nx_agraph.graphviz_layout(G, prog='dot')
+                else:
+                    raise ImportError("PyGraphviz not found")
             except:
-                # Fallback to spring layout
-                pos = nx.spring_layout(G, k=2, iterations=50)
+                # Fallback to custom layered layout (much better than spring)
+                pos = self._calculate_layered_layout(G)
             
             # Draw graph
             nx.draw(
@@ -372,7 +376,65 @@ class WorkflowGenerator:
             return None
         except Exception as e:
             logger.error(f"Matplotlib diagram generation failed: {e}")
+            logger.error(f"Matplotlib diagram generation failed: {e}")
             return None
+            
+    def _calculate_layered_layout(self, G):
+        """
+        Compute a layered (hierarchical) layout for a directed graph.
+        Returns a dictionary of positions keyed by node.
+        """
+        import networkx as nx
+        
+        # 1. Topological sort to determine layers
+        try:
+            # For DAGs, this is perfect
+            layers = list(nx.topological_generations(G))
+        except nx.NetworkXUnfeasible:
+            # If cycle exists, fallback to BFS from sources
+            layers = []
+            visited = set()
+            current_layer = [n for n, d in G.in_degree() if d == 0]
+            if not current_layer: # If no sources (pure cycle), pick arbitrary
+                current_layer = [list(G.nodes())[0]]
+            
+            while current_layer:
+                layers.append(current_layer)
+                visited.update(current_layer)
+                next_layer = []
+                for node in current_layer:
+                    for neighbor in G.neighbors(node):
+                        if neighbor not in visited:
+                            next_layer.append(neighbor)
+                            visited.add(neighbor)
+                current_layer = next_layer
+                
+            # Add remaining unvisited nodes
+            remaining = set(G.nodes()) - visited
+            if remaining:
+                layers.append(list(remaining))
+
+        # 2. Assign positions based on layers
+        pos = {}
+        width = 2.0  # Total width of the diagram
+        height = 1.0 # Total height
+        
+        # Horizontal spacing between layers
+        layer_dist = width / max(len(layers), 1)
+        
+        for i, layer in enumerate(layers):
+            # Vertical spacing within layer
+            nodes_in_layer = len(layer)
+            # x coordinate depends on layer index (Left to Right)
+            x = i * layer_dist
+            
+            for j, node in enumerate(layer):
+                # y coordinate centered
+                y = (j + 1) * (height / (nodes_in_layer + 1))
+                # Invert y to match standard coordinate systems if needed, but matplotlib is fine
+                pos[node] = (x, y)
+                
+        return pos
     
     def _fix_workflow_structure(self, steps: List[WorkflowStep]) -> List[WorkflowStep]:
         """
