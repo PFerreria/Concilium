@@ -5,7 +5,6 @@ import logging
 from datetime import datetime
 import uuid
 
-from graphviz import Digraph
 from app.config import settings
 from app.models.schemas import WorkflowStep, WorkflowDiagram
 
@@ -13,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class WorkflowGenerator:
-    """Workflow diagram generation service"""
+    """Workflow XML generation service"""
     
     def __init__(self):
         self.output_dir = settings.workflow_output_dir
@@ -30,13 +29,8 @@ class WorkflowGenerator:
             logger.info(f"Generating workflow: {name} (ID: {workflow_id})")
             
             # Generate BPMN XML
-            xml_path = await self._generate_bpmn_xml(
+            xml_path = await self.generate_bpmn_xml(
                 workflow_id, steps, name, description
-            )
-            
-            # Generate graphical diagram
-            diagram_path = await self._generate_diagram(
-                workflow_id, steps, name
             )
             
             workflow = WorkflowDiagram(
@@ -45,7 +39,7 @@ class WorkflowGenerator:
                 description=description,
                 steps=steps,
                 xml_path=str(xml_path),
-                diagram_path=str(diagram_path),
+                diagram_path=None,
                 created_at=datetime.now()
             )
             
@@ -56,7 +50,7 @@ class WorkflowGenerator:
             logger.error(f"Workflow generation failed: {e}")
             raise
     
-    async def _generate_bpmn_xml(
+    async def generate_bpmn_xml(
         self,
         workflow_id: str,
         steps: List[WorkflowStep],
@@ -157,60 +151,6 @@ class WorkflowGenerator:
             doc = etree.SubElement(element, f"{{{namespace}}}documentation")
             doc.text = step.description
     
-    async def _generate_diagram(
-        self,
-        workflow_id: str,
-        steps: List[WorkflowStep],
-        name: str
-    ) -> Path:
-        """Generate graphical workflow diagram using Graphviz"""
-        
-        # Create directed graph
-        dot = Digraph(comment=name)
-        dot.attr(rankdir='TB')  # Top to bottom layout
-        dot.attr('node', shape='box', style='rounded,filled', fillcolor='lightblue')
-        
-        # Add nodes
-        for step in steps:
-            # Customize node appearance based on type
-            if step.step_type == 'event':
-                dot.node(
-                    step.step_id,
-                    step.name,
-                    shape='ellipse',
-                    fillcolor='lightgreen' if 'start' in step.name.lower() else 'lightcoral'
-                )
-            elif step.step_type in ['gateway', 'decision']:
-                dot.node(
-                    step.step_id,
-                    step.name,
-                    shape='diamond',
-                    fillcolor='lightyellow'
-                )
-            else:
-                dot.node(
-                    step.step_id,
-                    step.name,
-                    fillcolor='lightblue'
-                )
-        
-        # Add edges
-        for step in steps:
-            for next_step_id in step.next_steps:
-                dot.edge(step.step_id, next_step_id)
-        
-        # Render diagram
-        diagram_filename = f"workflow_{workflow_id}"
-        diagram_path = self.output_dir / f"{diagram_filename}.{self.diagram_format}"
-        
-        dot.render(
-            str(self.output_dir / diagram_filename),
-            format=self.diagram_format,
-            cleanup=True
-        )
-        
-        logger.info(f"Workflow diagram generated: {diagram_path}")
-        return diagram_path
     
     async def get_workflow(self, workflow_id: str) -> Optional[WorkflowDiagram]:
         """Retrieve workflow by ID"""

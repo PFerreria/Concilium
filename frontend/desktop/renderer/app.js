@@ -118,10 +118,8 @@ function removeFile(type, index) {
 }
 
 function updateProcessButton() {
-    const hasFiles = state.audioFiles.length > 0 ||
-        state.documentFiles.length > 0 ||
-        state.templateFiles.length > 0;
-
+    // Only check for audio files
+    const hasFiles = state.audioFiles.length > 0;
     document.getElementById('processBtn').disabled = !hasFiles;
 }
 
@@ -148,39 +146,49 @@ async function startProcessing() {
 
     try {
         // Step 1: Upload files
-        updateProgress(10, 'Uploading files...');
+        updateProgress(10, 'Uploading audio files...');
 
         const audioFileIds = await uploadFiles(state.audioFiles, 'audio');
-        const documentFileIds = await uploadFiles(state.documentFiles, 'document');
-        const templateFileIds = await uploadFiles(state.templateFiles, 'template');
 
-        updateProgress(40, 'Files uploaded. Starting processing...');
+        if (audioFileIds.length === 0) {
+            throw new Error("No audio files uploaded");
+        }
 
-        // Step 2: Process
-        const generateWorkflow = document.getElementById('generateWorkflowCheck').checked;
-        const completeTemplates = document.getElementById('completeTemplatesCheck').checked;
-        const workflowName = document.getElementById('workflowName').value || 'Generated Workflow';
+        updateProgress(30, 'Files uploaded. Starting workflow generation...');
 
-        const processResponse = await fetch(`${state.apiUrl}/api/v1/process`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                audio_file_ids: audioFileIds,
-                document_file_ids: documentFileIds,
-                template_file_ids: templateFileIds,
-                generate_workflow: generateWorkflow,
-                complete_templates: completeTemplates,
-                workflow_name: workflowName
-            })
-        });
+        // Step 2: Process each audio file
+        const workflowName = document.getElementById('workflowName').value;
+        const results = {
+            transcriptions: [], // We don't get separate transcription objects in this flow easily, unless we change the return type or just use the workflow steps
+            workflows: [],
+            completed_documents: []
+        };
 
-        const processData = await processResponse.json();
-        const jobId = processData.job_id;
+        // Process sequentially
+        for (let i = 0; i < audioFileIds.length; i++) {
+            const fileId = audioFileIds[i];
+            updateProgress(30 + ((i / audioFileIds.length) * 60), `Processing file ${i + 1}/${audioFileIds.length}...`);
 
-        updateProgress(50, 'Processing in progress...');
+            // Call orchestrator endpoint
+            // Query params: ?file_id=...&workflow_name=...
+            const url = new URL(`${state.apiUrl}/api/v1/workflow/audio`);
+            url.searchParams.append('file_id', fileId);
+            if (workflowName) {
+                url.searchParams.append('workflow_name', workflowName);
+            }
 
-        // Step 3: Poll for results
-        const results = await pollJobStatus(jobId);
+            const processResponse = await fetch(url, {
+                method: 'POST'
+            });
+
+            if (!processResponse.ok) {
+                const error = await processResponse.json();
+                throw new Error(error.detail || 'Workflow generation failed');
+            }
+
+            const workflow = await processResponse.json();
+            results.workflows.push(workflow);
+        }
 
         updateProgress(100, 'Processing complete!');
 
@@ -201,6 +209,7 @@ async function startProcessing() {
         document.getElementById('progressSection').style.display = 'none';
     } finally {
         state.processing = false;
+        updateProcessButton(); // Re-enable button state check
     }
 }
 
@@ -271,14 +280,27 @@ function displayResults(results) {
         });
     }
 
-    // Display workflows
+    // Display workflows (XML ONLY as requested) + Transcript
     if (results.workflows && results.workflows.length > 0) {
         results.workflows.forEach(workflow => {
+            // Transcript Card
+            if (workflow.transcript) {
+                resultsGrid.innerHTML += createResultCard(
+                    'Audio Transcript',
+                    `${workflow.transcript.substring(0, 100)}...`,
+                    workflow.workflow_id, // We use workflow ID but will fetch content from the object or a new endpoint if needed. Actually let's just use a data attribute or similar. 
+                    // To keep it simple, we can download it by creating a blob locally since we have the text.
+                    'transcript',
+                    workflow.transcript // Pass content for local download
+                );
+            }
+
+            // XML Card
             resultsGrid.innerHTML += createResultCard(
-                'Workflow Diagram',
-                workflow.name,
+                'BPMN XML Workflow',
+                `Generated from ${workflow.name}`,
                 workflow.workflow_id,
-                'workflow'
+                'xml'
             );
         });
     }
@@ -296,7 +318,11 @@ function displayResults(results) {
     }
 }
 
-function createResultCard(title, description, id, type) {
+function createResultCard(title, description, id, type, content = null) {
+    const downloadAction = content
+        ? `downloadLocal('${id}', '${type}', \`${content.replace(/`/g, '\\`').replace(/'/g, "\\'")}\`)`
+        : `downloadResult('${id}', '${type}')`;
+
     return `
         <div class="result-card">
             <div class="result-info">
@@ -304,7 +330,7 @@ function createResultCard(title, description, id, type) {
                 <p>${description}</p>
             </div>
             <div class="result-actions">
-                <button class="btn-secondary" onclick="downloadResult('${id}', '${type}')">
+                <button class="btn-secondary" onclick="${downloadAction}">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                         <path d="M8 2V10M8 10L5 7M8 10L11 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                         <path d="M2 12V14H14V12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -316,13 +342,29 @@ function createResultCard(title, description, id, type) {
     `;
 }
 
+function downloadLocal(id, type, content) {
+    try {
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `transcript_${id}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    } catch (error) {
+        console.error('Download error:', error);
+    }
+}
+
 async function downloadResult(id, type) {
     try {
         let url;
         let filename;
 
-        if (type === 'workflow') {
-            // Download both XML and diagram
+        if (type === 'xml') {
+            // Download ONLY XML
             url = `${state.apiUrl}/download/workflow/${id}/xml`;
             filename = `workflow_${id}.xml`;
         } else if (type === 'document') {

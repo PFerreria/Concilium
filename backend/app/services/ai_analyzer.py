@@ -92,7 +92,8 @@ class AIAnalyzer:
             response = self.pipeline(
                 prompt,
                 max_new_tokens=settings.llm_max_tokens,
-                temperature=settings.llm_temperature
+                temperature=settings.llm_temperature,
+                return_full_text=False
             )
             
             # Extract generated text
@@ -115,32 +116,29 @@ class AIAnalyzer:
     ) -> str:
         """Create prompt for workflow extraction"""
         
-        system_prompt = """You are an expert business process analyst. Your task is to analyze text and extract workflow steps in a structured format.
+        system_prompt = """You are an expert business process analyst. Your task is to extract workflow steps from a transcript into a STRICT JSON array.
 
-For each workflow step, identify:
-1. Step name (concise title)
-2. Description (what happens in this step)
-3. Step type (task, decision, event, or gateway)
-4. Next steps (which steps follow this one)
+JSON Schema for each step:
+{
+  "step_id": "string (e.g., step_1, step_2)",
+  "name": "string (concise action name from text)",
+  "description": "string (detailed description from text)",
+  "step_type": "string (task, decision, event, gateway)",
+  "next_steps": ["string (ids of following steps)"]
+}
 
-Return the workflow as a JSON array of steps."""
+RULES:
+1. Extract steps ONLY from the provided transcript.
+2. Do NOT invent steps not mentioned.
+3. Return ONLY the JSON array.
+4. Do NOT include markdown formatting."""
         
-        user_prompt = f"""Analyze the following text and extract the workflow steps:
-
-{text}
+        user_prompt = f"""TRANSCRIPT:
+"{text}"
 
 {"Additional context: " + context if context else ""}
 
-Return a JSON array of workflow steps with this structure:
-[
-  {{
-    "step_id": "step_1",
-    "name": "Step Name",
-    "description": "What happens in this step",
-    "step_type": "task",
-    "next_steps": ["step_2"]
-  }}
-]"""
+Analyze the transcript above and extract the workflow steps as a JSON array."""
         
         messages = [
             {"role": "system", "content": system_prompt},
@@ -166,7 +164,7 @@ Return a JSON array of workflow steps with this structure:
             
             json_str = json_match.group(0)
             
-            # Robust JSON parsing (handles extra data after JSON)
+            # Robust JSON parsing
             try:
                 steps_data = json.loads(json_str)
             except json.JSONDecodeError:
@@ -182,9 +180,33 @@ Return a JSON array of workflow steps with this structure:
                 else:
                     return self._create_default_workflow()
             
+            logger.debug(f"Parsed JSON type: {type(steps_data)}")
+            
+            # Handle if the model returned a dict wrapping the array (e.g. {"steps": [...]})
+            if isinstance(steps_data, dict):
+                logger.warning("Model returned a Dict instead of List. Searching for array.")
+                # Look for the first list value
+                found_list = False
+                for key, value in steps_data.items():
+                    if isinstance(value, list):
+                        steps_data = value
+                        found_list = True
+                        break
+                if not found_list:
+                    logger.error("Could not find a list in the returned dictionary.")
+                    return self._create_default_workflow()
+
+            if not isinstance(steps_data, list):
+                logger.error(f"Parsed data is not a list: {type(steps_data)}")
+                return self._create_default_workflow()
+
             # Convert to WorkflowStep objects
             workflow_steps = []
             for step_data in steps_data:
+                if isinstance(step_data, str):
+                    logger.warning(f"Skipping string step data: {step_data}")
+                    continue
+                    
                 workflow_steps.append(WorkflowStep(
                     step_id=step_data.get('step_id', f'step_{len(workflow_steps) + 1}'),
                     name=step_data.get('name', 'Unnamed Step'),
