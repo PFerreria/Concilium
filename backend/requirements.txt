@@ -1,59 +1,126 @@
-# Web Framework
+# Concilium AI Assistant - Requirements
+# Cross-platform compatible dependencies with diagram generation
+
+# ============================================
+# WEB FRAMEWORK
+# ============================================
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 python-multipart>=0.0.6
 pydantic>=2.5.0
 pydantic-settings>=2.1.0
 
-# AI & ML - Open Source Models
+# ============================================
+# AI & ML - Core Libraries
+# ============================================
+# Note: Install PyTorch separately based on your platform
+# See installation instructions in CROSS_PLATFORM_DEPLOYMENT.md
+
 transformers>=4.36.0
-torch>=2.1.0
 accelerate>=0.25.0
 sentencepiece>=0.1.99
 protobuf>=4.25.0
+bitsandbytes>=0.41.0; platform_system != "Windows"  # Linux/Mac only
 
-# Llama Model Support (Optional, removed due to compilation issues)
-# llama-cpp-python>=0.2.0
-bitsandbytes>=0.41.0
-
-# Audio Processing - Whisper Local
+# ============================================
+# AUDIO PROCESSING - Whisper
+# ============================================
 openai-whisper>=20231117
 pydub>=0.25.1
 ffmpeg-python>=0.2.0
 
-# Document Processing
+# ============================================
+# DOCUMENT PROCESSING
+# ============================================
 PyPDF2>=3.0.0
 python-docx>=1.1.0
 openpyxl>=3.1.2
 pdfplumber>=0.10.3
 
-# Workflow Generation
+# ============================================
+# WORKFLOW GENERATION & DIAGRAM RENDERING
+# ============================================
 lxml>=5.1.0
-graphviz>=0.20.1
-diagrams>=0.23.4
 
-# Template Processing
+# Diagram generation libraries
+graphviz>=0.20.1              # Primary diagram renderer (requires Graphviz installed)
+matplotlib>=3.8.0             # Fallback diagram renderer
+networkx>=3.2.1               # Graph layout algorithms
+pillow>=10.1.0                # Image processing
+
+# ============================================
+# TEMPLATE PROCESSING
+# ============================================
 jinja2>=3.1.2
 
-# Database
+# ============================================
+# DATABASE
+# ============================================
 sqlalchemy>=2.0.23
 alembic>=1.13.0
 aiosqlite>=0.19.0
 
-# Background Tasks
-celery>=5.3.4
-redis>=5.0.1
+# ============================================
+# BACKGROUND TASKS (Optional)
+# ============================================
+# Uncomment if you need background task processing
+# celery>=5.3.4
+# redis>=5.0.1
 
-# Utilities
+# ============================================
+# UTILITIES
+# ============================================
 python-dotenv>=1.0.0
-python-magic>=0.4.27
 aiofiles>=23.2.1
+httpx>=0.25.2
 
-# API Documentation
-python-jose[cryptography]>=3.3.0
-passlib[bcrypt]>=1.7.4
+# ============================================
+# API SECURITY (Optional)
+# ============================================
+# python-jose[cryptography]>=3.3.0
+# passlib[bcrypt]>=1.7.4
 
-# Testing
+# ============================================
+# TESTING
+# ============================================
 pytest>=7.4.3
 pytest-asyncio>=0.21.1
-httpx>=0.25.2
+
+# ============================================
+# PLATFORM-SPECIFIC NOTES
+# ============================================
+
+# GRAPHVIZ INSTALLATION (Required for best diagram quality):
+# 
+# Windows:
+#   Download from: https://graphviz.org/download/
+#   OR: choco install graphviz
+#   Add to PATH: C:\Program Files\Graphviz\bin
+#
+# macOS:
+#   brew install graphviz
+#
+# Linux (Ubuntu/Debian):
+#   sudo apt install graphviz
+#
+# Linux (RHEL/CentOS):
+#   sudo yum install graphviz
+#
+# If Graphviz is not installed, the system will automatically
+# fallback to matplotlib for diagram generation.
+
+# PYTORCH INSTALLATION (Required - Install AFTER requirements.txt):
+# 
+# CPU-only (All platforms):
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+#
+# CUDA 11.8 (NVIDIA GPU):
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+#
+# CUDA 12.1 (NVIDIA GPU):
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+#
+# macOS (MPS support for Apple Silicon):
+# pip install torch torchvision torchaudio
+#
+# For more options: https://pytorch.org/get-started/locally/

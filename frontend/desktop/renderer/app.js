@@ -159,7 +159,7 @@ async function startProcessing() {
         // Step 2: Process each audio file
         const workflowName = document.getElementById('workflowName').value;
         const results = {
-            transcriptions: [], // We don't get separate transcription objects in this flow easily, unless we change the return type or just use the workflow steps
+            transcriptions: [],
             workflows: [],
             completed_documents: []
         };
@@ -170,7 +170,6 @@ async function startProcessing() {
             updateProgress(30 + ((i / audioFileIds.length) * 60), `Processing file ${i + 1}/${audioFileIds.length}...`);
 
             // Call orchestrator endpoint
-            // Query params: ?file_id=...&workflow_name=...
             const url = new URL(`${state.apiUrl}/api/v1/workflow/audio`);
             url.searchParams.append('file_id', fileId);
             if (workflowName) {
@@ -209,7 +208,7 @@ async function startProcessing() {
         document.getElementById('progressSection').style.display = 'none';
     } finally {
         state.processing = false;
-        updateProcessButton(); // Re-enable button state check
+        updateProcessButton();
     }
 }
 
@@ -236,26 +235,6 @@ async function uploadFiles(files, type) {
     return fileIds;
 }
 
-async function pollJobStatus(jobId) {
-    while (true) {
-        const response = await fetch(`${state.apiUrl}/api/v1/job/${jobId}`);
-        const data = await response.json();
-
-        if (data.status === 'completed') {
-            return data;
-        } else if (data.status === 'failed') {
-            throw new Error(data.error || 'Processing failed');
-        }
-
-        // Wait 2 seconds before polling again
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        // Update progress (between 50-90%)
-        const progress = 50 + Math.random() * 40;
-        updateProgress(progress, 'Processing...');
-    }
-}
-
 function updateProgress(percent, text) {
     document.getElementById('progressFill').style.width = `${percent}%`;
     document.getElementById('progressText').textContent = text;
@@ -268,19 +247,7 @@ function displayResults(results) {
     const resultsGrid = document.getElementById('resultsGrid');
     resultsGrid.innerHTML = '';
 
-    // Display transcriptions
-    if (results.transcriptions && results.transcriptions.length > 0) {
-        results.transcriptions.forEach(trans => {
-            resultsGrid.innerHTML += createResultCard(
-                'Transcription',
-                `${trans.language} - ${trans.duration_seconds.toFixed(1)}s`,
-                trans.file_id,
-                'transcription'
-            );
-        });
-    }
-
-    // Display workflows (XML ONLY as requested) + Transcript
+    // Display workflows (XML + Diagram + Transcript)
     if (results.workflows && results.workflows.length > 0) {
         results.workflows.forEach(workflow => {
             // Transcript Card
@@ -288,10 +255,9 @@ function displayResults(results) {
                 resultsGrid.innerHTML += createResultCard(
                     'Audio Transcript',
                     `${workflow.transcript.substring(0, 100)}...`,
-                    workflow.workflow_id, // We use workflow ID but will fetch content from the object or a new endpoint if needed. Actually let's just use a data attribute or similar. 
-                    // To keep it simple, we can download it by creating a blob locally since we have the text.
+                    workflow.workflow_id,
                     'transcript',
-                    workflow.transcript // Pass content for local download
+                    workflow.transcript
                 );
             }
 
@@ -302,6 +268,16 @@ function displayResults(results) {
                 workflow.workflow_id,
                 'xml'
             );
+
+            // Diagram Card (if available)
+            if (workflow.diagram_path) {
+                resultsGrid.innerHTML += createResultCard(
+                    'Workflow Diagram',
+                    `Visual representation of ${workflow.name}`,
+                    workflow.workflow_id,
+                    'diagram'
+                );
+            }
         });
     }
 
@@ -323,6 +299,16 @@ function createResultCard(title, description, id, type, content = null) {
         ? `downloadLocal('${id}', '${type}', \`${content.replace(/`/g, '\\`').replace(/'/g, "\\'")}\`)`
         : `downloadResult('${id}', '${type}')`;
 
+    const previewButton = type === 'diagram' 
+        ? `<button class="btn-secondary" onclick="previewDiagram('${id}')">
+             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                 <path d="M1 8C1 8 3 3 8 3C13 3 15 8 15 8C15 8 13 13 8 13C3 13 1 8 1 8Z" stroke="currentColor" stroke-width="1.5"/>
+                 <circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.5"/>
+             </svg>
+             Preview
+           </button>`
+        : '';
+
     return `
         <div class="result-card">
             <div class="result-info">
@@ -330,6 +316,7 @@ function createResultCard(title, description, id, type, content = null) {
                 <p>${description}</p>
             </div>
             <div class="result-actions">
+                ${previewButton}
                 <button class="btn-secondary" onclick="${downloadAction}">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                         <path d="M8 2V10M8 10L5 7M8 10L11 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -340,6 +327,61 @@ function createResultCard(title, description, id, type, content = null) {
             </div>
         </div>
     `;
+}
+
+async function previewDiagram(workflowId) {
+    try {
+        const url = `${state.apiUrl}/download/workflow/${workflowId}/diagram`;
+        const response = await fetch(url);
+        const blob = await response.blob();
+        
+        // Create object URL for preview
+        const objectUrl = URL.createObjectURL(blob);
+        
+        // Open in new window
+        const previewWindow = window.open('', '_blank', 'width=800,height=600');
+        previewWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Workflow Diagram Preview</title>
+                <style>
+                    body {
+                        margin: 0;
+                        padding: 20px;
+                        background: #0a0e27;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        min-height: 100vh;
+                    }
+                    img {
+                        max-width: 100%;
+                        max-height: 90vh;
+                        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+                        border-radius: 8px;
+                    }
+                </style>
+            </head>
+            <body>
+                <img src="${objectUrl}" alt="Workflow Diagram" />
+            </body>
+            </html>
+        `);
+        
+        // Clean up object URL after window loads
+        previewWindow.addEventListener('load', () => {
+            setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+        });
+        
+    } catch (error) {
+        console.error('Preview error:', error);
+        await window.electronAPI.showMessage({
+            type: 'error',
+            title: 'Preview Error',
+            message: `Failed to preview diagram: ${error.message}`
+        });
+    }
 }
 
 function downloadLocal(id, type, content) {
@@ -364,9 +406,12 @@ async function downloadResult(id, type) {
         let filename;
 
         if (type === 'xml') {
-            // Download ONLY XML
             url = `${state.apiUrl}/download/workflow/${id}/xml`;
             filename = `workflow_${id}.xml`;
+        } else if (type === 'diagram') {
+            url = `${state.apiUrl}/download/workflow/${id}/diagram`;
+            // Get file extension from settings or default to png
+            filename = `workflow_${id}.png`;
         } else if (type === 'document') {
             url = `${state.apiUrl}/download/document/${id}`;
             filename = `document_${id}.docx`;
@@ -375,6 +420,11 @@ async function downloadResult(id, type) {
         }
 
         const response = await fetch(url);
+        
+        if (!response.ok) {
+            throw new Error(`Download failed: ${response.statusText}`);
+        }
+        
         const blob = await response.blob();
         const arrayBuffer = await blob.arrayBuffer();
 

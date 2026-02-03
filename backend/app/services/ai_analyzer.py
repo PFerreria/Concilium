@@ -116,22 +116,24 @@ class AIAnalyzer:
     ) -> str:
         """Create prompt for workflow extraction"""
         
-        system_prompt = """You are an expert business process analyst. Your task is to extract workflow steps from a transcript into a STRICT JSON array.
+        system_prompt = """You are an expert BPMN process analyst. Your task is to extract a sequential workflow from a transcription.
 
-JSON Schema for each step:
+CRITICAL RULES FOR EXTRACTION:
+1. **IDs**: Must be short, unique, `snake_case`, and NO spaces (e.g., `fill_form`, `find_client`). NEVER use full sentences as IDs.
+2. **Step Types**:
+   - `task`: Default for any action (e.g., "fill document", "find client").
+   - `gateway`: ONLY for explicit decisions (e.g., "If correct then A, else B"). Do NOT use gateways for simple sequence.
+   - `event`: Only for Start/End.
+3. **Sequence**: Ensure the `next_steps` create a logical flow.
+
+JSON Schema:
 {
-  "step_id": "string (e.g., step_1, step_2)",
-  "name": "string (concise action name from text)",
-  "description": "string (detailed description from text)",
-  "step_type": "string (task, decision, event, gateway)",
-  "next_steps": ["string (ids of following steps)"]
-}
-
-RULES:
-1. Extract steps ONLY from the provided transcript.
-2. Do NOT invent steps not mentioned.
-3. Return ONLY the JSON array.
-4. Do NOT include markdown formatting."""
+  "step_id": "string (snake_case_id, max 3 words)",
+  "name": "string (Human readable name)",
+  "description": "string (Brief description)",
+  "step_type": "string (task, gateway, event)",
+  "next_steps": ["string (ID of the next step)"]
+}"""
         
         user_prompt = f"""TRANSCRIPT:
 "{text}"
