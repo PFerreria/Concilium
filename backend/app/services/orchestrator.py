@@ -61,7 +61,16 @@ class WorkflowOrchestrator:
             )
             logger.info(f"Step 3 completed: XML generated at {xml_path}")
 
-            # Return result with NO diagram path
+            # 4. Generate visual diagram
+            diagram_path = await workflow_generator.generate_diagram(
+                workflow_id, steps, name
+            )
+            if diagram_path:
+                logger.info(f"Step 4 completed: Diagram generated at {diagram_path}")
+            else:
+                logger.warning("Step 4 warning: Diagram generation failed or returned None")
+
+            # Return result
             return WorkflowDiagram(
                 workflow_id=workflow_id,
                 name=name,
@@ -69,7 +78,7 @@ class WorkflowOrchestrator:
                 steps=steps,
                 transcript=transcription.full_text,
                 xml_path=str(xml_path),
-                diagram_path=None, # Explicitly None as requested
+                diagram_path=str(diagram_path) if diagram_path else None,
                 created_at=datetime.now()
             )
 
